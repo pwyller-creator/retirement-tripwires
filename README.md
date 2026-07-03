@@ -1,5 +1,7 @@
 # Retirement Portfolio Tripwires
 
+[![GitHub](https://img.shields.io/badge/GitHub-repo-blue?logo=github)](https://github.com/pwyller-creator/retirement-tripwires)
+
 Local macro/tech-risk tripwire monitor. Four pillars, traffic-light output,
 Windows toast notification on Yellow/Red, log file + trend CSV per run.
 
