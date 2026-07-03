@@ -1,0 +1,12 @@
+[fred]
+; Free key: https://fred.stlouisfed.org/docs/api/api_key.html
+api_key = YOUR_FRED_API_KEY_HERE
+
+[sec]
+; SEC requires a contact identifier on every request (fair-access policy).
+; Format: Name email@example.com -- doesn't need to be verified, just present.
+user_agent = RetirementTripwires contact@example.com
+
+[app]
+data_dir = data
+log_dir = logs

@@ -23,8 +23,12 @@ Pillar 1 pulls a full S&P 500 scan (~500 tickers via yfinance, chunked with
 pauses to avoid rate-limiting). After that first scan, it's cached for 7
 days, so daily runs are fast (just QQQ/SMH + the other 3 pillars).
 
-`config.ini` already has your FRED key filled in. The `[sec] user_agent`
-value is a placeholder SEC's fair-access policy requires on every request —
+`config.ini` already has your FRED key filled in (it's gitignored, not
+committed). If you're setting this up on a new machine or from a fresh
+clone, copy `config.ini.example` to `config.ini` and fill in a free FRED
+key first — get one at fred.stlouisfed.org/docs/api/api_key.html. The
+`[sec] user_agent` value is a placeholder SEC's fair-access policy requires
+on every request —
 it doesn't need to be a real/verified address, but you can personalize it.
 
 ## Running it daily (Windows Task Scheduler)
