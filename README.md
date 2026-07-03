@@ -2,6 +2,7 @@
 
 [![GitHub](https://img.shields.io/badge/GitHub-repo-blue?logo=github)](https://github.com/pwyller-creator/retirement-tripwires)
 [![CI](https://github.com/pwyller-creator/retirement-tripwires/actions/workflows/ci.yml/badge.svg)](https://github.com/pwyller-creator/retirement-tripwires/actions/workflows/ci.yml)
+[![Last Commit](https://img.shields.io/github/last-commit/pwyller-creator/retirement-tripwires)](https://github.com/pwyller-creator/retirement-tripwires/commits/master)
 
 Local macro/tech-risk tripwire monitor. Four pillars, traffic-light output,
 Windows toast notification on Yellow/Red, log file + trend CSV per run.
