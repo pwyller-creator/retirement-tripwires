@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  syntax-check:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Stand up placeholder config
+        run: copy config.ini.example config.ini
+
+      - name: Byte-compile all modules
+        run: >
+          python -m py_compile
+          config.py state.py report.py notify.py main.py
+          pillar1_concentration.py pillar2_capex.py pillar3_macro.py pillar4_regulatory.py
+
+      - name: Import check (catches import-time errors)
+        run: >
+          python -c "import config, state, report, notify,
+          pillar1_concentration, pillar2_capex, pillar3_macro, pillar4_regulatory"
