@@ -6,6 +6,8 @@
 Local macro/tech-risk tripwire monitor. Four pillars, traffic-light output,
 Windows toast notification on Yellow/Red, log file + trend CSV per run.
 
+![Sample terminal output](docs/screenshot.png)
+
 ## What it actually checks
 
 | Pillar | Source | Notes |
