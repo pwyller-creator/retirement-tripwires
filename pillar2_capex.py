@@ -57,9 +57,15 @@ def _search(cik, phrase, start_date, end_date):
         "startdt": start_date,
         "enddt": end_date,
     }
-    resp = requests.get(FULLTEXT_SEARCH_URL, params=params, headers=HEADERS, timeout=20)
-    resp.raise_for_status()
-    return resp.json().get("hits", {}).get("hits", [])
+    # EDGAR FTS intermittently 500s on cold queries under load; an immediate
+    # retry almost always succeeds, so retry 5xx twice before giving up.
+    for attempt in range(3):
+        resp = requests.get(FULLTEXT_SEARCH_URL, params=params, headers=HEADERS, timeout=20)
+        if resp.status_code >= 500 and attempt < 2:
+            time.sleep(1)
+            continue
+        resp.raise_for_status()
+        return resp.json().get("hits", {}).get("hits", [])
 
 
 def run():
