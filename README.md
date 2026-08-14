@@ -21,7 +21,27 @@ Windows toast notification on Yellow/Red, log file + trend CSV per run.
 | 3. Fed pivot + credit spreads | FRED API | Flags an off-schedule Fed funds target change (vs. the 8 known 2026 FOMC dates) as RED; HY OAS credit spread widening >50bps/month as RED; 10Y-2Y spread shown as context only |
 | 4. Regulatory/AI friction | RSS: TechCrunch, Ars Technica, FTC, DOJ Antitrust Division | Flags headlines that mention a regulatory-action term *and* a major AI lab together |
 
+## Prerequisites
+
+- Windows (Task Scheduler for unattended runs, `winotify` for toast alerts —
+  this tool doesn't run on Mac/Linux)
+- Python 3.9+ installed and on your PATH
+- Internet access (yfinance, SEC EDGAR, FRED API, RSS feeds)
+
+## Getting the code
+
+```
+git clone https://github.com/pwyller-creator/retirement-tripwires.git
+cd retirement-tripwires
+```
+
 ## One-time setup
+
+Copy `config.ini.example` to `config.ini` and fill in a free FRED key — get
+one at fred.stlouisfed.org/docs/api/api_key.html. The `[sec] user_agent`
+value is a placeholder SEC's fair-access policy requires on every request —
+it doesn't need to be a real/verified address, but you can personalize it.
+`config.ini` is gitignored, so your key stays local.
 
 ```
 run.bat
@@ -32,22 +52,14 @@ Pillar 1 pulls a full S&P 500 scan (~500 tickers via yfinance, chunked with
 pauses to avoid rate-limiting). After that first scan, it's cached for 7
 days, so daily runs are fast (just QQQ/SMH + the other 3 pillars).
 
-`config.ini` already has your FRED key filled in (it's gitignored, not
-committed). If you're setting this up on a new machine or from a fresh
-clone, copy `config.ini.example` to `config.ini` and fill in a free FRED
-key first — get one at fred.stlouisfed.org/docs/api/api_key.html. The
-`[sec] user_agent` value is a placeholder SEC's fair-access policy requires
-on every request —
-it doesn't need to be a real/verified address, but you can personalize it.
-
 ## Running it daily (Windows Task Scheduler)
 
 1. Open Task Scheduler → Create Basic Task
 2. Trigger: Daily, pick a time (markets closed, e.g. 6:00 PM ET works well
    so the day's closes are final)
 3. Action: **Start a program**
-   - Program: `C:\Users\tdcot\OneDrive\Desktop\Webpage\retirement-tripwires\run.bat`
-   - Start in: `C:\Users\tdcot\OneDrive\Desktop\Webpage\retirement-tripwires`
+   - Program: `<path-to-your-cloned-repo>\run.bat`
+   - Start in: `<path-to-your-cloned-repo>`
 4. Finish. Task Scheduler will now run it unattended; a Windows toast fires
    automatically if anything's Yellow/Red.
 
