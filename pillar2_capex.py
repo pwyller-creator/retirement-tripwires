@@ -28,6 +28,11 @@ KEYWORD_PHRASES = [
 ]
 FORMS = "8-K,10-Q,10-K"
 LOOKBACK_DAYS = 45
+# Earnings releases (8-K Item 2.02) are where capex guidance actually moves, and
+# they are not keyword-searchable by a stable phrase. Check each company's
+# submissions feed for new ones; 120 days covers the last full quarterly cycle.
+EARNINGS_LOOKBACK_DAYS = 120
+SUBMISSIONS_URL = "https://data.sec.gov/submissions/CIK{cik}.json"
 
 HEADERS = {"User-Agent": SEC_USER_AGENT}
 
@@ -68,6 +73,22 @@ def _search(cik, phrase, start_date, end_date):
         return resp.json().get("hits", {}).get("hits", [])
 
 
+def _recent_earnings_filings(cik):
+    """Return recent 8-K filings that include Item 2.02 (results of operations)."""
+    resp = requests.get(SUBMISSIONS_URL.format(cik=cik), headers=HEADERS, timeout=20)
+    resp.raise_for_status()
+    recent = resp.json()["filings"]["recent"]
+    cutoff = (dt.date.today() - dt.timedelta(days=EARNINGS_LOOKBACK_DAYS)).isoformat()
+    out = []
+    for form, items, filed, adsh, doc in zip(
+        recent["form"], recent["items"], recent["filingDate"],
+        recent["accessionNumber"], recent["primaryDocument"],
+    ):
+        if form == "8-K" and "2.02" in items.split(",") and filed >= cutoff:
+            out.append({"filed": filed, "adsh": adsh, "doc": doc})
+    return out
+
+
 def run():
     seen = state.load("capex_seen_filings", default={"ids": []})
     seen_ids = set(seen["ids"])
@@ -93,6 +114,25 @@ def run():
         if not cik:
             errors.append(f"no CIK found for {ticker}")
             continue
+
+        try:
+            earnings = _recent_earnings_filings(cik)
+        except Exception as e:
+            errors.append(f"{ticker}/earnings: {e}")
+            earnings = []
+        for f in earnings:
+            key = f"earnings:{f['adsh']}"
+            if key in seen_ids:
+                continue
+            seen_ids.add(key)
+            cik_num = str(int(cik))
+            url = (f"https://www.sec.gov/Archives/edgar/data/{cik_num}/"
+                   f"{f['adsh'].replace('-', '')}/{f['doc']}")
+            new_hits.append({
+                "ticker": ticker, "phrase": "earnings release (Item 2.02)", "form": "8-K",
+                "filed": f["filed"], "adsh": f["adsh"], "url": url,
+            })
+
         for phrase in KEYWORD_PHRASES:
             try:
                 hits = _search(cik, phrase, start_date, end_date)
