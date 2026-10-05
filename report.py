@@ -1,12 +1,15 @@
 import csv
 import datetime as dt
 
-from config import LOG_DIR
+from config import LOG_DIR, redact
 
 STATUS_RANK = {"GREEN": 0, "YELLOW": 1, "RED": 2}
 
 
 def build(pillar_results):
+    for p in pillar_results:
+        p["findings"] = [redact(f) for f in p["findings"]]
+
     overall = "GREEN"
     for p in pillar_results:
         if STATUS_RANK[p["status"]] > STATUS_RANK[overall]:
@@ -35,7 +38,7 @@ def build(pillar_results):
     with open(history_path, "a", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         if is_new:
-            writer.writerow(["timestamp", "overall_status"] + [p["pillar"].split(":")[0] for p in pillar_results])
+            writer.writerow(["timestamp", "overall_status"] + [f"pillar{i}" for i in range(1, len(pillar_results) + 1)])
         writer.writerow([now.isoformat(), overall] + [p["status"] for p in pillar_results])
 
     red_lines = [f"{p['pillar']}: " + "; ".join(x for x in p["findings"] if x.startswith("RED")) for p in pillar_results if p["status"] == "RED"]
