@@ -10,6 +10,7 @@ Metric 2: BofA US High Yield OAS (BAMLH0A0HYM2). Trigger: spread widens by
 more than 50bps versus ~1 month (21 trading days) prior.
 """
 import datetime as dt
+import time
 import requests
 
 import state
@@ -35,8 +36,21 @@ def _fetch_series(series_id, limit=40):
         "sort_order": "desc",
         "limit": limit,
     }
-    resp = requests.get(FRED_URL, params=params, timeout=20)
-    resp.raise_for_status()
+    # FRED intermittently 5xxs (502 seen 2026-09-29); back off and retry
+    # before giving up so the credit-spread check isn't silently skipped.
+    for attempt in range(4):
+        try:
+            resp = requests.get(FRED_URL, params=params, timeout=20)
+        except (requests.ConnectionError, requests.Timeout):
+            if attempt < 3:
+                time.sleep(2 ** attempt * 2)
+                continue
+            raise
+        if resp.status_code >= 500 and attempt < 3:
+            time.sleep(2 ** attempt * 2)
+            continue
+        resp.raise_for_status()
+        break
     obs = resp.json().get("observations", [])
     # Drop "." placeholder values FRED uses for missing data.
     return [o for o in obs if o.get("value") not in (None, ".")]
