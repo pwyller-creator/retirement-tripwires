@@ -1,4 +1,5 @@
 import argparse
+import datetime as dt
 import traceback
 
 import pillar1_concentration
@@ -7,6 +8,7 @@ import pillar3_macro
 import pillar4_regulatory
 import report
 import notify
+import state
 
 
 def run_pillar(module, force_weekly=False):
@@ -15,11 +17,22 @@ def run_pillar(module, force_weekly=False):
             module.get_weekly_scan(force=True)
         return module.run()
     except Exception as e:
+        # A crashed pillar hasn't checked its triggers, so it is UNKNOWN, not GREEN.
         return {
             "pillar": getattr(module, "__name__", "unknown"),
-            "status": "GREEN",
-            "findings": [f"WARN: pillar crashed and was skipped this run: {e}"],
+            "status": "UNKNOWN",
+            "findings": [f"WARN: pillar crashed and was not checked this run: {e}"],
         }
+
+
+def write_heartbeat(overall, results):
+    """Record that the run finished. Lets a missed or broken scheduled run be
+    spotted by checking one file's timestamp."""
+    state.save("heartbeat", {
+        "finished_at": dt.datetime.now().isoformat(),
+        "overall": overall,
+        "pillars": {r["pillar"].split(":")[0]: r["status"] for r in results},
+    })
 
 
 def main():
@@ -35,11 +48,12 @@ def main():
         run_pillar(pillar4_regulatory),
     ]
 
-    overall, text, red_lines, yellow_lines = report.build(results)
+    overall, text, red_lines, yellow_lines, unknown_lines = report.build(results)
     print(text)
+    write_heartbeat(overall, results)
 
     try:
-        notify.toast(overall, red_lines, yellow_lines)
+        notify.toast(overall, red_lines, yellow_lines, unknown_lines)
     except Exception:
         pass  # notification is best-effort; never fail the run over it
 
