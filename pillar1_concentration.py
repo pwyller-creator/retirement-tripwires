@@ -23,6 +23,8 @@ import state
 TOP5 = ["MSFT", "GOOGL", "AMZN", "META", "NVDA"]
 CONCENTRATION_TRIGGER_PCT = 32.0
 BREADTH_TRIGGER_PCT = 50.0
+EW_LOOKBACK_DAYS = 40      # ~2 months of trading days
+EW_LOSS_TRIGGER_PCT = 4.0  # RSP underperforming SPY by more than this = narrowing
 SCAN_MAX_AGE_DAYS = 7
 SP500_LIST_MAX_AGE_DAYS = 30
 
@@ -148,12 +150,40 @@ def _breadth_breakdown_check(ticker):
     return {"ticker": ticker, "status": "GREEN", "detail": "above 50DMA"}
 
 
+def _equal_weight_check():
+    """RSP (equal-weight S&P 500) vs SPY (cap-weight). A falling ratio means the
+    average stock is lagging the index. Independent of the weekly scan."""
+    df = yf.download(["RSP", "SPY"], period="200d", interval="1d",
+                     auto_adjust=True, progress=False)["Close"].dropna()
+    if len(df) < EW_LOOKBACK_DAYS + 1:
+        return {"status": "UNKNOWN", "detail": "insufficient RSP/SPY history"}
+    ratio = df["RSP"] / df["SPY"]
+    change = (ratio.iloc[-1] / ratio.iloc[-1 - EW_LOOKBACK_DAYS] - 1) * 100
+    msg = f"equal-weight vs cap-weight (RSP/SPY) {change:+.1f}% over ~{EW_LOOKBACK_DAYS} trading days"
+    if change < -EW_LOSS_TRIGGER_PCT:
+        return {"status": "YELLOW", "detail": msg + f", trigger < -{EW_LOSS_TRIGGER_PCT}%"}
+    return {"status": "GREEN", "detail": msg}
+
+
 def run():
-    scan = get_weekly_scan()
+    try:
+        scan = get_weekly_scan()
+    except Exception as e:
+        return {
+            "pillar": "1: S&P 500 Concentration & Tech Breadth",
+            "status": "UNKNOWN",
+            "findings": [f"WARN: weekly S&P 500 scan failed ({e}); concentration and breadth not checked"],
+        }
+
     breakdowns = [_breadth_breakdown_check(t) for t in ("QQQ", "SMH")]
+    try:
+        ew = _equal_weight_check()
+    except Exception as e:
+        ew = {"status": "UNKNOWN", "detail": f"RSP/SPY check failed ({e})"}
 
     findings = []
     status = "GREEN"
+    gap = False
 
     conc = scan.get("concentration_pct")
     if conc is not None:
@@ -163,6 +193,7 @@ def run():
         else:
             findings.append(f"OK: Top-5 mega-cap concentration {conc:.1f}% (trigger {CONCENTRATION_TRIGGER_PCT}%)")
     else:
+        gap = True
         findings.append("WARN: concentration data unavailable this run")
 
     breadth = scan.get("pct_above_200dma")
@@ -173,14 +204,22 @@ def run():
         else:
             findings.append(f"OK: {breadth:.1f}% of S&P 500 above 200DMA")
     else:
+        gap = True
         findings.append("WARN: breadth data unavailable this run")
 
-    for b in breakdowns:
-        findings.append(f"{b['status']}: {b['ticker']} -- {b['detail']}")
-        if b["status"] == "RED":
+    for b in breakdowns + [ew]:
+        label = b.get("ticker", "RSP/SPY")
+        findings.append(f"{b['status']}: {label} -- {b['detail']}")
+        if b["status"] == "UNKNOWN":
+            gap = True
+        elif b["status"] == "RED":
             status = "RED"
         elif b["status"] == "YELLOW" and status == "GREEN":
             status = "YELLOW"
+
+    # A data gap can't be GREEN, but a real RED/YELLOW still shows as such.
+    if gap and status == "GREEN":
+        status = "UNKNOWN"
 
     return {
         "pillar": "1: S&P 500 Concentration & Tech Breadth",
