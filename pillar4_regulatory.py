@@ -86,20 +86,20 @@ def run():
 
     state.save("regulatory_seen_entries", {"ids": list(seen_ids)})
 
+    # Headline keywords are noisy (a dismissed lawsuit matched as a hit), so
+    # this pillar is context only: it can raise YELLOW but never RED on its own.
     if new_hits:
+        status = "YELLOW"
         for h in new_hits:
-            level = "RED" if h["severe"] else "YELLOW"
-            if level == "RED":
-                status = "RED"
-            elif status == "GREEN":
-                status = "YELLOW"
             findings.append(
-                f"{level}: [{h['feed']}] \"{h['title']}\" (matched '{h['action_hit']}' + '{h['lab_hit']}') -- {h['link']}"
+                f"YELLOW: [{h['feed']}] \"{h['title']}\" (matched '{h['action_hit']}' + '{h['lab_hit']}') -- {h['link']}"
             )
     else:
         findings.append("OK: no new regulatory/AI-lab co-occurrence hits across tracked feeds")
 
     if dead_feeds:
+        # A dead feed is a coverage gap, so this pillar can't call itself GREEN.
+        status = "UNKNOWN"
         findings.append(f"WARN: unreachable/empty feed(s), check URL: {', '.join(dead_feeds)}")
 
     return {
