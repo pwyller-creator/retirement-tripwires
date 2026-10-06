@@ -43,14 +43,18 @@ automatically on first run.
   keys (`marketCap`) accessible only via attribute, not `.get()`. This exact
   mistake silently zeroed out Pillar 1 once already; if you're touching that
   file, watch for the same trap.
-- **FOMC meeting dates** (`FOMC_2026_DATES` in `pillar3_macro.py`) — hardcoded
+- **FOMC meeting dates** (`FOMC_DATES` in `pillar3_macro.py`) — hardcoded
   per year, needs a manual update every January from
-  federalreserve.gov/monetarypolicy/fomccalendars.htm.
+  federalreserve.gov/monetarypolicy/fomccalendars.htm. The pillar reports
+  UNKNOWN for a year with no dates, so a stale list shows up in the output.
+- **SEC XBRL capex concepts** (`CAPEX_CONCEPTS` in `pillar2_capex.py`) —
+  companies tag the same cash-flow line differently, and a tag can go stale.
+  If a company's capex line reports UNKNOWN, check which tag it now uses.
 
 ## Scope
 
-Pillar 2's capex-guidance scan only matches keywords in SEC filings, not
-earnings-call transcripts (no free transcript API exists) — it's meant to
-surface candidates for a human to read, not to auto-judge guidance changes.
-Don't try to make it "smarter" without a real transcript source behind it;
-that would just be false confidence.
+Pillar 2 reads SEC filings, not earnings-call transcripts (no free transcript
+API exists). It flags new earnings releases, flags reported capex slowdowns,
+and keyword-matches filings. All of these surface candidates for a human to
+read, not judgments about guidance. Don't try to make it "smarter" without a
+real transcript source behind it; that would just be false confidence.

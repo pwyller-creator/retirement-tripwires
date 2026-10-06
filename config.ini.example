@@ -1,5 +1,7 @@
 [fred]
 ; Free key: https://fred.stlouisfed.org/docs/api/api_key.html
+; Preferred: save the key alone in %LOCALAPPDATA%\fallout76er-tools\fred-api-key.txt.
+; This line is only a fallback if that file is missing.
 api_key = YOUR_FRED_API_KEY_HERE
 
 [sec]
