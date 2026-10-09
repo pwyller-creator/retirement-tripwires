@@ -48,12 +48,13 @@ def main():
         run_pillar(pillar4_regulatory),
     ]
 
-    overall, text, red_lines, yellow_lines, unknown_lines = report.build(results)
+    overall, text, red_lines, yellow_lines, unknown_lines, log_path, portfolio_line = report.build(results)
     print(text)
     write_heartbeat(overall, results)
 
     try:
-        notify.toast(overall, red_lines, yellow_lines, unknown_lines)
+        notify.toast(overall, red_lines, yellow_lines, unknown_lines, log_path=log_path,
+                     portfolio_line=portfolio_line)
     except Exception:
         pass  # notification is best-effort; never fail the run over it
 

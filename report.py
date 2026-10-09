@@ -1,6 +1,7 @@
 import csv
 import datetime as dt
 
+import portfolio
 from config import LOG_DIR, redact
 
 # UNKNOWN means a data source failed, so the pillar could not check its
@@ -33,6 +34,14 @@ def build(pillar_results):
         for f in p["findings"]:
             lines.append(f"    - {f}")
 
+    portfolio_line = None
+    if overall != "GREEN":
+        _, portfolio_lines = portfolio.estimate()
+        if portfolio_lines:
+            lines.append("")
+            lines.extend(portfolio_lines)
+            portfolio_line = portfolio.toast_line()
+
     text = "\n".join(lines)
 
     log_path = LOG_DIR / f"tripwires_{now.strftime('%Y-%m-%d')}.log"
@@ -50,7 +59,7 @@ def build(pillar_results):
     unknown_lines = [f"{p['pillar']}: " + "; ".join(x for x in p["findings"] if x.startswith("WARN"))
                      for p in pillar_results if p["status"] == "UNKNOWN"]
 
-    return overall, text, red_lines, yellow_lines, unknown_lines
+    return overall, text, red_lines, yellow_lines, unknown_lines, log_path, portfolio_line
 
 
 def _write_history(now, overall, pillar_results):

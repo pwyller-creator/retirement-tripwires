@@ -1,0 +1,22 @@
+"""
+Holdings snapshot used by portfolio.py to estimate drawdown impact.
+
+This file is gitignored (real percentages are personal financial data and
+this repo is public) -- copy it to portfolio_data.py and fill in your own
+numbers from your plan provider's "current holdings" page. Update it by
+hand whenever you rebalance or contributions meaningfully shift the mix.
+"""
+from datetime import date
+
+# Snapshot date: when these percentages were last read off the plan's
+# holdings page. Update this alongside HOLDINGS.
+AS_OF = date(2026, 1, 1)
+
+# (name, % of account, equity fraction of that holding -- 1.0 for a pure
+# stock fund, 0.0 for a bond/stable-value/cash fund, a glide-path estimate
+# for a target-date fund).
+HOLDINGS = [
+    ("Example Target Date Fund", 50.0, 0.60),
+    ("Example Total Bond Market Fund", 30.0, 0.00),
+    ("Example S&P 500 Index Fund", 20.0, 1.00),
+]

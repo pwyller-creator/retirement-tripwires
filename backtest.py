@@ -100,7 +100,12 @@ def main():
 
     hy = daily(fred("BAMLH0A0HYM2"), idx)
     curve = daily(fred("T10Y2Y"), idx)
+    curve_3m10y = daily(fred("T10Y3M"), idx)
     nfci = daily(fred("NFCI"), idx)
+
+    # Quarterly, forward-filled daily like Sahm/claims below.
+    lending_q = fred("DRTSCILM")
+    lending = daily(lending_q, idx)
 
     # Sahm and claims are computed on their own frequency (monthly, weekly),
     # then forward-filled. Rolling over the daily-filled series would count
@@ -122,6 +127,11 @@ def main():
         "NFCI > 0 (YELLOW)": nfci > 0,
         "Curve re-steepened after inversion (YELLOW)":
             (curve.rolling(252, min_periods=60).min() < 0) & (curve > 0),
+        "10Y-3M inverted (YELLOW)": curve_3m10y < 0,
+        "10Y-3M re-steepened after inversion (YELLOW)":
+            (curve_3m10y.rolling(400, min_periods=60).min() < 0) & (curve_3m10y > 0),
+        "Lending standards net tightening > 20% (YELLOW)": lending > 20,
+        "Lending standards net tightening > 40% (RED)": lending > 40,
     }
     signals = {k: v.fillna(False).astype(bool) for k, v in signals.items()}
 

@@ -21,6 +21,18 @@ Metric 6: 10Y-2Y spread (T10Y2Y). YELLOW: the curve re-steepened to positive
 after being inverted within the last year. Re-steepening after inversion is
 the part that has historically mattered, not the inversion itself.
 
+Metric 7: 10Y-3M spread (T10Y3M) -- the NY Fed's own recession-probability
+model input. YELLOW: currently inverted, or re-steepened to positive after
+an inversion within the last ~19 months. backtest.py (2026-10-08) found
+this curve catches the same 4/8 drawdowns on both forms with a ~2.5x worse
+false-alarm rate than the 10Y-2Y re-steepening signal above, so it stays
+YELLOW rather than RED -- treat it as supplementary color, not a sharper
+lead than metric 6.
+
+Metric 8: Senior Loan Officer Opinion Survey, net % of banks tightening C&I
+lending standards for large/middle-market firms (DRTSCILM). Quarterly.
+YELLOW above 20%, RED above 40% (2001/2008/2020 each cleared 40%+).
+
 All thresholds are untested heuristics. backtest.py measures them against
 past drawdowns; tune them from that output, not from memory.
 
@@ -50,6 +62,9 @@ CREDIT_SPREAD_3M_TRIGGER_BPS = 75   # 3-month widening -> YELLOW
 SAHM_TRIGGER_PTS = 0.5
 CLAIMS_TRIGGER_RATIO = 1.25
 CURVE_LOOKBACK_OBS = 252            # ~1 year of trading days
+CURVE_3M10Y_LOOKBACK_OBS = 400      # ~19 months of trading days; this curve's inversions run longer
+LENDING_STANDARDS_YELLOW_PCT = 20
+LENDING_STANDARDS_RED_PCT = 40
 
 
 def _fetch_series(series_id, limit=40):
@@ -130,6 +145,44 @@ def _check_yield_curve():
     return f"OK: 10Y-2Y spread {latest:+.2f} ({note})", "GREEN"
 
 
+def _check_curve_3m10y():
+    obs = _fetch_series("T10Y3M", limit=CURVE_3M10Y_LOOKBACK_OBS)
+    if len(obs) < 60:
+        return "WARN: T10Y3M history unavailable this run", "UNKNOWN"
+    vals = [float(o["value"]) for o in obs]
+    latest = vals[0]
+    inverted_within_period = min(vals) < 0
+    if inverted_within_period and latest > 0:
+        return (f"YELLOW: 10Y-3M spread {latest:+.2f} -- re-steepened to positive after inversion "
+                f"within ~19 months (NY Fed recession-model input; dis-inversion has historically "
+                f"landed close to the recession start)"), "YELLOW"
+    if latest < 0:
+        return (f"YELLOW: 10Y-3M spread {latest:+.2f} -- inverted (NY Fed recession-model input; "
+                f"inversions have historically preceded recessions by ~12-18 months)"), "YELLOW"
+    return f"OK: 10Y-3M spread {latest:+.2f} (normal)", "GREEN"
+
+
+def _check_lending_standards():
+    obs = _fetch_series("DRTSCILM", limit=6)
+    if not obs:
+        return "WARN: DRTSCILM unavailable this run", "UNKNOWN"
+    latest = obs[0]
+    val = float(latest["value"])
+    delta = ""
+    if len(obs) > 1:
+        prior_val = float(obs[1]["value"])
+        delta = f", {val - prior_val:+.1f}pt vs prior quarter"
+
+    if val > LENDING_STANDARDS_RED_PCT:
+        return (f"RED: Senior Loan Officer Survey net {val:.0f}% of banks tightening C&I lending "
+                f"standards ({latest['date']}{delta}) -- crisis-level, trigger > {LENDING_STANDARDS_RED_PCT}%"), "RED"
+    if val > LENDING_STANDARDS_YELLOW_PCT:
+        return (f"YELLOW: Senior Loan Officer Survey net {val:.0f}% of banks tightening C&I lending "
+                f"standards ({latest['date']}{delta}), trigger > {LENDING_STANDARDS_YELLOW_PCT}%"), "YELLOW"
+    return (f"OK: Senior Loan Officer Survey net {val:.0f}% tightening C&I lending standards "
+            f"({latest['date']}{delta})"), "GREEN"
+
+
 def _check_credit_spread():
     obs = _fetch_series("BAMLH0A0HYM2", limit=70)
     if len(obs) < 64:
@@ -200,7 +253,8 @@ def _safe(check):
 
 def run():
     checks = [_check_fomc_list, _check_fed_funds_target, _check_yield_curve,
-              _check_credit_spread, _check_sahm, _check_claims, _check_nfci]
+              _check_curve_3m10y, _check_credit_spread, _check_sahm, _check_claims,
+              _check_nfci, _check_lending_standards]
     findings = []
     statuses = []
     for check in checks:
