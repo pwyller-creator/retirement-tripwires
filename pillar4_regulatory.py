@@ -2,14 +2,20 @@
 Pillar 4: Regulatory friction & AI disruption triggers.
 
 Scans free RSS feeds for headlines that co-occur a regulatory-action term
-with a major-lab name. FTC/DOJ feed URLs occasionally change on the
-government side -- each feed fetch is wrapped so one dead feed doesn't
-break the run; if a feed starts silently returning nothing, check/update
-its URL below.
+with a major-lab name. ftc.gov sits behind Akamai bot management that
+fingerprints the TLS/HTTP handshake itself -- plain `requests` gets a fake
+404 on literally every request (even the homepage), no matter what headers
+are sent, because the block happens before HTTP headers are even read. Real
+browsers get through fine, so feed fetches go through curl_cffi impersonating
+Chrome's TLS fingerprint instead of plain `requests`. If a feed starts
+reliably returning nothing even through that, it has likely actually moved
+-- check/update its URL below.
 """
 import datetime as dt
+import time
+
 import feedparser
-import requests
+from curl_cffi import requests as creq
 
 import state
 
@@ -24,9 +30,7 @@ FEEDS = {
     ),
 }
 
-# Both ftc.gov and justice.gov 403 requests with no User-Agent, so fetch the
-# raw bytes ourselves and hand them to feedparser instead of letting it fetch.
-_UA = {"User-Agent": "Mozilla/5.0 (retirement-tripwires script)"}
+_FEED_RETRIES = 3
 
 ACTION_TERMS = [
     "export control", "national security review", "government audit",
@@ -57,14 +61,20 @@ def run():
     status = "GREEN"
 
     for name, url in FEEDS.items():
-        try:
-            resp = requests.get(url, headers=_UA, timeout=20)
-            resp.raise_for_status()
-            parsed = feedparser.parse(resp.content)
-            if not parsed.entries:
-                dead_feeds.append(name)
-                continue
-        except Exception:
+        parsed = None
+        for attempt in range(_FEED_RETRIES):
+            try:
+                resp = creq.get(url, impersonate="chrome", timeout=20)
+                resp.raise_for_status()
+                candidate = feedparser.parse(resp.content)
+                if candidate.entries:
+                    parsed = candidate
+                    break
+            except Exception:
+                pass
+            if attempt < _FEED_RETRIES - 1:
+                time.sleep(3)
+        if parsed is None:
             dead_feeds.append(name)
             continue
 
